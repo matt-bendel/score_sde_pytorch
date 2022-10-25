@@ -70,9 +70,6 @@ class DataTransform:
 
     arr = np.ones((128, 128))
     arr[128 // 4: 3 * 128 // 4, 128 // 4: 3 * 128 // 4] = 0
-    plt.imshow(np.reshape(arr, (128, 128)), cmap='viridis')
-    plt.savefig(f'mask_{self.args.R}.png')
-    plt.close()
     self.mask = torch.tensor(np.reshape(arr, (128, 128)), dtype=torch.float).repeat(3, 1, 1)
     torch.save(self.mask, 'mast.pt')
 
