@@ -215,58 +215,57 @@ def train(config, workdir):
 
   for step in range(initial_step, num_train_steps + 1):
     # Convert data to JAX arrays and normalize them. Use ._numpy() to avoid copy.
-    for i, data in enumerate(train_ds):
+    data = next(train_ds)
+    x, _, _ = data[0]
+    x = x.cuda()
+    batch = x
+    # batch = batch.permute(0, 3, 1, 2)
+    batch = scaler(batch)
+    # Execute one training step
+    loss = train_step_fn(state, batch)
+    if step % config.training.log_freq == 0:
+      logging.info("step: %d, training_loss: %.5e" % (step, loss.item()))
+      writer.add_scalar("training_loss", loss, step)
+
+    # Save a temporary checkpoint to resume training after pre-emption periodically
+    if step != 0 and step % config.training.snapshot_freq_for_preemption == 0:
+      save_checkpoint(checkpoint_meta_dir, state)
+
+    # Report the loss on an evaluation dataset periodically
+    if step % config.training.eval_freq == 0:
+      data = next(eval_ds)
       x, _, _ = data[0]
       x = x.cuda()
-      print(x.shape)
-      batch = x
-      # batch = batch.permute(0, 3, 1, 2)
-      batch = scaler(batch)
-      # Execute one training step
-      loss = train_step_fn(state, batch)
-      if step % config.training.log_freq == 0:
-        logging.info("step: %d, training_loss: %.5e" % (step, loss.item()))
-        writer.add_scalar("training_loss", loss, step)
+      eval_batch = x
+      eval_batch = scaler(eval_batch)
+      eval_loss = eval_step_fn(state, eval_batch)
+      logging.info("step: %d, eval_loss: %.5e" % (step, eval_loss.item()))
+      writer.add_scalar("eval_loss", eval_loss.item(), step)
 
-      # Save a temporary checkpoint to resume training after pre-emption periodically
-      if step != 0 and step % config.training.snapshot_freq_for_preemption == 0:
-        save_checkpoint(checkpoint_meta_dir, state)
+    # Save a checkpoint periodically and generate samples if needed
+    if step != 0 and step % config.training.snapshot_freq == 0 or step == num_train_steps:
+      # Save the checkpoint.
+      save_step = step // config.training.snapshot_freq
+      save_checkpoint(os.path.join(checkpoint_dir, f'checkpoint_{save_step}.pth'), state)
 
-      # Report the loss on an evaluation dataset periodically
-      if step % config.training.eval_freq == 0:
-        for j, data in enumerate(eval_ds):
-          x, _, _ = data[0]
-          x = x.cuda()
-          eval_batch = x
-          eval_batch = scaler(eval_batch)
-          eval_loss = eval_step_fn(state, eval_batch)
-          logging.info("step: %d, eval_loss: %.5e" % (step, eval_loss.item()))
-          writer.add_scalar("eval_loss", eval_loss.item(), step)
+      # Generate and save samples
+      if config.training.snapshot_sampling:
+        ema.store(score_model.parameters())
+        ema.copy_to(score_model.parameters())
+        sample, n = sampling_fn(score_model)
+        ema.restore(score_model.parameters())
+        this_sample_dir = os.path.join(sample_dir, "iter_{}".format(step))
+        tf.io.gfile.makedirs(this_sample_dir)
+        nrow = int(np.sqrt(sample.shape[0]))
+        image_grid = make_grid(sample, nrow, padding=2)
+        sample = np.clip(sample.permute(0, 2, 3, 1).cpu().numpy() * 255, 0, 255).astype(np.uint8)
+        with tf.io.gfile.GFile(
+            os.path.join(this_sample_dir, "sample.np"), "wb") as fout:
+          np.save(fout, sample)
 
-      # Save a checkpoint periodically and generate samples if needed
-      if step != 0 and step % config.training.snapshot_freq == 0 or step == num_train_steps:
-        # Save the checkpoint.
-        save_step = step // config.training.snapshot_freq
-        save_checkpoint(os.path.join(checkpoint_dir, f'checkpoint_{save_step}.pth'), state)
-
-        # Generate and save samples
-        if config.training.snapshot_sampling:
-          ema.store(score_model.parameters())
-          ema.copy_to(score_model.parameters())
-          sample, n = sampling_fn(score_model)
-          ema.restore(score_model.parameters())
-          this_sample_dir = os.path.join(sample_dir, "iter_{}".format(step))
-          tf.io.gfile.makedirs(this_sample_dir)
-          nrow = int(np.sqrt(sample.shape[0]))
-          image_grid = make_grid(sample, nrow, padding=2)
-          sample = np.clip(sample.permute(0, 2, 3, 1).cpu().numpy() * 255, 0, 255).astype(np.uint8)
-          with tf.io.gfile.GFile(
-              os.path.join(this_sample_dir, "sample.np"), "wb") as fout:
-            np.save(fout, sample)
-
-          with tf.io.gfile.GFile(
-              os.path.join(this_sample_dir, "sample.png"), "wb") as fout:
-            save_image(image_grid, fout)
+        with tf.io.gfile.GFile(
+            os.path.join(this_sample_dir, "sample.png"), "wb") as fout:
+          save_image(image_grid, fout)
 
 
 # def evaluate(config,
