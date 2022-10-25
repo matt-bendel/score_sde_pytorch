@@ -9,8 +9,8 @@ def get_default_configs():
   config.training.batch_size = 64
   training.n_iters = 2400001
   training.snapshot_freq = 50000
-  training.log_freq = 50
-  training.eval_freq = 100
+  training.log_freq = 1
+  training.eval_freq = 200
   ## store additional checkpoints for preemption in cloud computing environments
   training.snapshot_freq_for_preemption = 5000
   ## produce samples at each snapshot.
