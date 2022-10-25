@@ -40,9 +40,90 @@ import torch
 from torch.utils import tensorboard
 from torchvision.utils import make_grid, save_image
 from utils import save_checkpoint, restore_checkpoint
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+from torch.utils.data.dataset import Subset
 
 FLAGS = flags.FLAGS
 
+
+class DataTransform:
+  """
+  Data Transformer for training U-Net models.
+  """
+
+  def __init__(self):
+    """
+    Args:
+        mask_func (common.subsample.MaskFunc): A function that can create  a mask of
+            appropriate shape.
+        resolution (int): Resolution of the image.
+        which_challenge (str): Either "singlecoil" or "multicoil" denoting the dataset.
+        use_seed (bool): If true, this class computes a pseudo random number generator seed
+            from the filename. This ensures that the same mask is used for all the slices of
+            a given volume every time.
+    """
+    np.random.seed(0)
+
+    total = 128 * 128
+    # n = total // self.args.R
+
+    arr = np.ones((128, 128))
+    arr[128 // 4: 3 * 128 // 4, 128 // 4: 3 * 128 // 4] = 0
+    plt.imshow(np.reshape(arr, (128, 128)), cmap='viridis')
+    plt.savefig(f'mask_{self.args.R}.png')
+    plt.close()
+    self.mask = torch.tensor(np.reshape(arr, (128, 128)), dtype=torch.float).repeat(3, 1, 1)
+    torch.save(self.mask, 'mast.pt')
+
+  def __call__(self, gt_im):
+    # mean = torch.tensor([0.5, 0.5, 0.5])
+    # std = torch.tensor([0.5, 0.5, 0.5])
+    gt = gt_im
+    masked_im = gt * self.mask
+
+    return gt.float(), masked_im.float(), self.mask.float()
+
+
+def create_datasets():
+  transform = transforms.Compose([transforms.ToTensor(), transforms.RandomHorizontalFlip(), DataTransform()])
+  dataset = datasets.ImageFolder('/storage/celebA-HQ/celeba_hq_128', transform=transform)
+  train_data, dev_data, test_data = torch.utils.data.random_split(
+    dataset, [27000, 2000, 1000],
+    generator=torch.Generator().manual_seed(0)
+  )
+
+  return test_data, dev_data, train_data
+
+
+def create_data_loaders():
+  test_data, dev_data, train_data = create_datasets()
+
+  train_loader = DataLoader(
+    dataset=train_data,
+    batch_size=128,
+    shuffle=True,
+    num_workers=16,
+    pin_memory=True,
+    drop_last=True,
+  )
+
+  dev_loader = DataLoader(
+    dataset=dev_data,
+    batch_size=128,
+    num_workers=16,
+    pin_memory=True,
+    drop_last=True,
+  )
+
+  test_loader = DataLoader(
+    dataset=test_data,
+    batch_size=128,
+    num_workers=16,
+    pin_memory=True,
+  )
+
+  return train_loader, dev_loader, test_loader
 
 def train(config, workdir):
   """Runs the training pipeline.
@@ -78,10 +159,7 @@ def train(config, workdir):
   initial_step = int(state['step'])
 
   # Build data iterators
-  train_ds, eval_ds, _ = datasets.get_dataset(config,
-                                              uniform_dequantization=config.data.uniform_dequantization)
-  train_iter = iter(train_ds)  # pytype: disable=wrong-arg-types
-  eval_iter = iter(eval_ds)  # pytype: disable=wrong-arg-types
+  train_ds, eval_ds, _ = create_data_loaders()
   # Create data normalizer and its inverse
   scaler = datasets.get_data_scaler(config)
   inverse_scaler = datasets.get_data_inverse_scaler(config)
@@ -124,52 +202,58 @@ def train(config, workdir):
 
   for step in range(initial_step, num_train_steps + 1):
     # Convert data to JAX arrays and normalize them. Use ._numpy() to avoid copy.
-    batch = torch.from_numpy(next(train_iter)['image']._numpy()).to(config.device).float()
-    batch = batch.permute(0, 3, 1, 2)
-    batch = scaler(batch)
-    # Execute one training step
-    loss = train_step_fn(state, batch)
-    if step % config.training.log_freq == 0:
-      logging.info("step: %d, training_loss: %.5e" % (step, loss.item()))
-      writer.add_scalar("training_loss", loss, step)
+    for i, data in enumerate(train_ds):
+      x, y, mask = data[0]
+      x = x.cuda()
+      print(x.shape)
+      batch = x
+      # batch = batch.permute(0, 3, 1, 2)
+      batch = scaler(batch)
+      # Execute one training step
+      loss = train_step_fn(state, batch)
+      if step % config.training.log_freq == 0:
+        logging.info("step: %d, training_loss: %.5e" % (step, loss.item()))
+        writer.add_scalar("training_loss", loss, step)
 
-    # Save a temporary checkpoint to resume training after pre-emption periodically
-    if step != 0 and step % config.training.snapshot_freq_for_preemption == 0:
-      save_checkpoint(checkpoint_meta_dir, state)
+      # Save a temporary checkpoint to resume training after pre-emption periodically
+      if step != 0 and step % config.training.snapshot_freq_for_preemption == 0:
+        save_checkpoint(checkpoint_meta_dir, state)
 
-    # Report the loss on an evaluation dataset periodically
-    if step % config.training.eval_freq == 0:
-      eval_batch = torch.from_numpy(next(eval_iter)['image']._numpy()).to(config.device).float()
-      eval_batch = eval_batch.permute(0, 3, 1, 2)
-      eval_batch = scaler(eval_batch)
-      eval_loss = eval_step_fn(state, eval_batch)
-      logging.info("step: %d, eval_loss: %.5e" % (step, eval_loss.item()))
-      writer.add_scalar("eval_loss", eval_loss.item(), step)
+      # Report the loss on an evaluation dataset periodically
+      if step % config.training.eval_freq == 0:
+        for j, data in enumerate(eval_ds):
+          x, y, mask = data[0]
+          x = x.cuda()
+          eval_batch = x
+          eval_batch = scaler(eval_batch)
+          eval_loss = eval_step_fn(state, eval_batch)
+          logging.info("step: %d, eval_loss: %.5e" % (step, eval_loss.item()))
+          writer.add_scalar("eval_loss", eval_loss.item(), step)
 
-    # Save a checkpoint periodically and generate samples if needed
-    if step != 0 and step % config.training.snapshot_freq == 0 or step == num_train_steps:
-      # Save the checkpoint.
-      save_step = step // config.training.snapshot_freq
-      save_checkpoint(os.path.join(checkpoint_dir, f'checkpoint_{save_step}.pth'), state)
+      # Save a checkpoint periodically and generate samples if needed
+      if step != 0 and step % config.training.snapshot_freq == 0 or step == num_train_steps:
+        # Save the checkpoint.
+        save_step = step // config.training.snapshot_freq
+        save_checkpoint(os.path.join(checkpoint_dir, f'checkpoint_{save_step}.pth'), state)
 
-      # Generate and save samples
-      if config.training.snapshot_sampling:
-        ema.store(score_model.parameters())
-        ema.copy_to(score_model.parameters())
-        sample, n = sampling_fn(score_model)
-        ema.restore(score_model.parameters())
-        this_sample_dir = os.path.join(sample_dir, "iter_{}".format(step))
-        tf.io.gfile.makedirs(this_sample_dir)
-        nrow = int(np.sqrt(sample.shape[0]))
-        image_grid = make_grid(sample, nrow, padding=2)
-        sample = np.clip(sample.permute(0, 2, 3, 1).cpu().numpy() * 255, 0, 255).astype(np.uint8)
-        with tf.io.gfile.GFile(
-            os.path.join(this_sample_dir, "sample.np"), "wb") as fout:
-          np.save(fout, sample)
+        # Generate and save samples
+        if config.training.snapshot_sampling:
+          ema.store(score_model.parameters())
+          ema.copy_to(score_model.parameters())
+          sample, n = sampling_fn(score_model)
+          ema.restore(score_model.parameters())
+          this_sample_dir = os.path.join(sample_dir, "iter_{}".format(step))
+          tf.io.gfile.makedirs(this_sample_dir)
+          nrow = int(np.sqrt(sample.shape[0]))
+          image_grid = make_grid(sample, nrow, padding=2)
+          sample = np.clip(sample.permute(0, 2, 3, 1).cpu().numpy() * 255, 0, 255).astype(np.uint8)
+          with tf.io.gfile.GFile(
+              os.path.join(this_sample_dir, "sample.np"), "wb") as fout:
+            np.save(fout, sample)
 
-        with tf.io.gfile.GFile(
-            os.path.join(this_sample_dir, "sample.png"), "wb") as fout:
-          save_image(image_grid, fout)
+          with tf.io.gfile.GFile(
+              os.path.join(this_sample_dir, "sample.png"), "wb") as fout:
+            save_image(image_grid, fout)
 
 
 def evaluate(config,
