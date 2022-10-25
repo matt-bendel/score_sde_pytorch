@@ -232,7 +232,7 @@ def train(config, workdir):
       save_checkpoint(checkpoint_meta_dir, state)
 
     # Report the loss on an evaluation dataset periodically
-    if step % config.training.eval_freq == 0:
+    if step != 0 and step % config.training.eval_freq == 0:
       data = next(iter(eval_ds))
       x, _, _ = data[0]
       x = x.cuda()
