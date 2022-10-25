@@ -215,7 +215,7 @@ def train(config, workdir):
 
   for step in range(initial_step, num_train_steps + 1):
     # Convert data to JAX arrays and normalize them. Use ._numpy() to avoid copy.
-    data = next(train_ds)
+    data = next(iter(train_ds))
     x, _, _ = data[0]
     x = x.cuda()
     batch = x
@@ -233,7 +233,7 @@ def train(config, workdir):
 
     # Report the loss on an evaluation dataset periodically
     if step % config.training.eval_freq == 0:
-      data = next(eval_ds)
+      data = next(iter(eval_ds))
       x, _, _ = data[0]
       x = x.cuda()
       eval_batch = x
