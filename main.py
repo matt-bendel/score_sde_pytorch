@@ -16,6 +16,7 @@
 """Training and evaluation"""
 
 import run_lib
+import generate_inpaint_samples
 from absl import app
 from absl import flags
 from ml_collections.config_flags import config_flags
@@ -52,6 +53,8 @@ def main(argv):
   elif FLAGS.mode == "eval":
     # Run the evaluation pipeline
     run_lib.evaluate(FLAGS.config, FLAGS.workdir, FLAGS.eval_folder)
+  elif Flags.mode == "inpaint":
+    generate_inpaint_samples.sample(FLAGS.config)
   else:
     raise ValueError(f"Mode {FLAGS.mode} not recognized.")
 
