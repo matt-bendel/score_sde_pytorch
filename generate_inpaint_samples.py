@@ -196,7 +196,7 @@ def sample(config):
             print(f"BATCH: {i+1}/{len(test_ds)}")
             batch, y, mask = data[0]
             batch = batch.cuda()
-            mask = mask.cuda().repeat(batch.size(0)*num_samps, 1, 1, 1)
+            mask = mask.cuda().repeat(num_samps, 1, 1, 1)
 
             super_batch = torch.zeros(batch.size(0)*num_samps, 3, 256, 256).cuda()
 
