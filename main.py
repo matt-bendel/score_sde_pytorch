@@ -53,7 +53,7 @@ def main(argv):
   elif FLAGS.mode == "eval":
     # Run the evaluation pipeline
     run_lib.evaluate(FLAGS.config, FLAGS.workdir, FLAGS.eval_folder)
-  elif Flags.mode == "inpaint":
+  elif FLAGS.mode == "inpaint":
     generate_inpaint_samples.sample(FLAGS.config)
   else:
     raise ValueError(f"Mode {FLAGS.mode} not recognized.")
