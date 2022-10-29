@@ -84,9 +84,9 @@ class DataTransform:
     """
     np.random.seed(0)
 
-    arr = np.ones((256, 128))
+    arr = np.ones((256, 256))
     arr[256 // 4: 3 * 256 // 4, 256 // 4: 3 * 256 // 4] = 0
-    self.mask = torch.tensor(np.reshape(arr, (128, 128)), dtype=torch.float).repeat(3, 1, 1)
+    self.mask = torch.tensor(np.reshape(arr, (256, 256)), dtype=torch.float).repeat(3, 1, 1)
     torch.save(self.mask, 'mast.pt')
 
   def __call__(self, gt_im):
