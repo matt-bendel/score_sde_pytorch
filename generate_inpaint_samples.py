@@ -132,7 +132,7 @@ def create_data_loaders():
 
   test_loader = DataLoader(
     dataset=test_data,
-    batch_size=1,
+    batch_size=40,
     num_workers=16,
     pin_memory=True,
   )
@@ -191,7 +191,7 @@ def sample(config):
 
     total_count = 0
 
-    num_samps = 4
+    num_samps = 32
     with torch.no_grad():
         for i, data in enumerate(test_ds):
             print(f"BATCH: {i+1}")
