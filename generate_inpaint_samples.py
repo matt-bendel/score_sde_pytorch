@@ -132,7 +132,7 @@ def create_data_loaders():
 
   test_loader = DataLoader(
     dataset=test_data,
-    batch_size=20,
+    batch_size=10,
     num_workers=16,
     pin_memory=True,
   )
@@ -210,13 +210,27 @@ def sample(config):
             print("SAVING SAMPLES...")
             for j in range(batch.size(0)):
                 samps = x[j*num_samps:(j+1)*num_samps, :, :, :]
-                show_samples(samps, total_count, config)
+                fig = plt.figure()
+                fig.subplots_adjust(wspace=0, hspace=0.05)
+
                 for k in range(num_samps):
+                    if k < 5:
+                        ax = fig.add_subplot(5, 1, r + 1)
+                        ax.set_xticks([])
+                        ax.set_yticks([])
+                        # if r == 2:
+                        #     ax.set_xlabel('CoModGAN',fontweight='bold')
+                        ax.imshow(samps[k].cpu().numpy().transpose(1, 2, 0))
+
                     save_dict = {
                         'gt': batch[j].cpu(),
                         'masked': y[j],
                         'x_hat': samps[k]
                     }
                     torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}_sample_{k}.pt'))
+
+                    if k == 5:
+                        plt.savefig(f'/storage/celebA-HQ/langevin_256_plots/samps_{total_count}.png', bbox_inches='tight', dpi=300)
+                        plt.close(fig)
 
                 total_count += 1
