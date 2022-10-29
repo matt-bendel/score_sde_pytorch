@@ -39,6 +39,7 @@ import likelihood
 import sde_lib
 from absl import flags
 import torch
+from losses import get_optimizer
 from torch.utils import tensorboard
 from torchvision.utils import make_grid, save_image
 from utils import save_checkpoint, restore_checkpoint
