@@ -219,3 +219,4 @@ def sample(config):
                 torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}_sample_{k}.pt'))
 
             total_count += 1
+        exit()
