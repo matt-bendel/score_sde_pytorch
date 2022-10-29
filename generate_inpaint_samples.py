@@ -132,7 +132,7 @@ def create_data_loaders():
 
   test_loader = DataLoader(
     dataset=test_data,
-    batch_size=40,
+    batch_size=20,
     num_workers=16,
     pin_memory=True,
   )
