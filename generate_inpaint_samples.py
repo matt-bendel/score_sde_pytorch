@@ -215,7 +215,7 @@ def sample(config):
 
                 for k in range(num_samps):
                     if k < 5:
-                        ax = fig.add_subplot(5, 1, r + 1)
+                        ax = fig.add_subplot(5, 1, k + 1)
                         ax.set_xticks([])
                         ax.set_yticks([])
                         # if r == 2:
@@ -224,8 +224,8 @@ def sample(config):
 
                     save_dict = {
                         'gt': batch[j].cpu(),
-                        'masked': y[j],
-                        'x_hat': samps[k]
+                        'masked': y[j].cpu(),
+                        'x_hat': samps[k].cpu()
                     }
                     torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}_sample_{k}.pt'))
 
