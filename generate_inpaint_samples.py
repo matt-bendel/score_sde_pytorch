@@ -192,6 +192,7 @@ def sample(config):
 
     num_samps = 4
     for i, data in enumerate(test_ds):
+        print(f"BATCH: {i+1}")
         batch, y, mask = data[0]
         batch = batch.cuda()
         mask = mask.cuda().repeat(b_size*num_samps, 1, 1, 1)
@@ -207,6 +208,7 @@ def sample(config):
 
         x = pc_inpainter(score_model, scaler(img), mask)
 
+        print("SAVING SAMPLES...")
         for j in range(batch.size(0)):
             samps = x[j*num_samps:(j+1)*num_samps, :, :, :]
             show_samples(samps, total_count)
