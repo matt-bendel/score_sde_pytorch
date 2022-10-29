@@ -194,7 +194,7 @@ def sample(config):
     num_samps = 32
     with torch.no_grad():
         for i, data in enumerate(test_ds):
-            print(f"BATCH: {i+1}")
+            print(f"BATCH: {i+1}/{len(test_ds)}")
             batch, y, mask = data[0]
             batch = batch.cuda()
             mask = mask.cuda().repeat(batch.size(0)*num_samps, 1, 1, 1)
