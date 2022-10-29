@@ -157,7 +157,6 @@ def show_samples(x, tc):
   plt.close()
 
 def sample(config):
-    b_size = 40
     _, _, test_ds = create_data_loaders()
 
     score_model = mutils.create_model(config)
@@ -204,6 +203,8 @@ def sample(config):
             for j in range(batch.size(0)):
                 super_batch[j*num_samps:(j+1)*num_samps] = batch[j].unsqueeze(0).repeat(num_samps, 1, 1, 1)
 
+            print(mask.shape)
+            print(super_batch.shape)
             x = pc_inpainter(score_model, scaler(super_batch), mask)
 
             print("SAVING SAMPLES...")
