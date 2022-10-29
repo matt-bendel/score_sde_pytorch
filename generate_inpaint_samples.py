@@ -139,7 +139,7 @@ def create_data_loaders():
 
   return train_loader, dev_loader, test_loader
 
-def image_grid(x):
+def image_grid(x, config):
   size = config.data.image_size
   channels = config.data.num_channels
   img = x.reshape(-1, size, size, channels)
@@ -147,9 +147,9 @@ def image_grid(x):
   img = img.reshape((w, w, size, size, channels)).transpose((0, 2, 1, 3, 4)).reshape((w * size, w * size, channels))
   return img
 
-def show_samples(x, tc):
+def show_samples(x, tc, config):
   x = x.permute(0, 2, 3, 1).detach().cpu().numpy()
-  img = image_grid(x)
+  img = image_grid(x, config)
   plt.figure(figsize=(8,8))
   plt.axis('off')
   plt.imshow(img)
@@ -210,7 +210,7 @@ def sample(config):
             print("SAVING SAMPLES...")
             for j in range(batch.size(0)):
                 samps = x[j*num_samps:(j+1)*num_samps, :, :, :]
-                show_samples(samps, total_count)
+                show_samples(samps, total_count, config)
                 for k in range(num_samps):
                     save_dict = {
                         'gt': batch[j].cpu(),
