@@ -192,30 +192,31 @@ def sample(config):
     total_count = 0
 
     num_samps = 4
-    for i, data in enumerate(test_ds):
-        print(f"BATCH: {i+1}")
-        batch, y, mask = data[0]
-        batch = batch.cuda()
-        mask = mask.cuda().repeat(b_size*num_samps, 1, 1, 1)
+    with torch.no_grad():
+        for i, data in enumerate(test_ds):
+            print(f"BATCH: {i+1}")
+            batch, y, mask = data[0]
+            batch = batch.cuda()
+            mask = mask.cuda().repeat(b_size*num_samps, 1, 1, 1)
 
-        super_batch = torch.zeros(b_size*num_samps, 3, 256, 256).cuda()
+            super_batch = torch.zeros(b_size*num_samps, 3, 256, 256).cuda()
 
-        for j in range(batch.size(0)):
-            super_batch[j*num_samps:(j+1)*num_samps] = batch[j].unsqueeze(0).repeat(num_samps, 1, 1, 1)
+            for j in range(batch.size(0)):
+                super_batch[j*num_samps:(j+1)*num_samps] = batch[j].unsqueeze(0).repeat(num_samps, 1, 1, 1)
 
-        x = pc_inpainter(score_model, scaler(super_batch), mask)
+            x = pc_inpainter(score_model, scaler(super_batch), mask)
 
-        print("SAVING SAMPLES...")
-        for j in range(batch.size(0)):
-            samps = x[j*num_samps:(j+1)*num_samps, :, :, :]
-            show_samples(samps, total_count)
-            for k in range(num_samps):
-                save_dict = {
-                    'gt': batch[j].cpu(),
-                    'masked': y[j],
-                    'x_hat': samps[k]
-                }
-                torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}_sample_{k}.pt'))
+            print("SAVING SAMPLES...")
+            for j in range(batch.size(0)):
+                samps = x[j*num_samps:(j+1)*num_samps, :, :, :]
+                show_samples(samps, total_count)
+                for k in range(num_samps):
+                    save_dict = {
+                        'gt': batch[j].cpu(),
+                        'masked': y[j],
+                        'x_hat': samps[k]
+                    }
+                    torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}_sample_{k}.pt'))
 
-            total_count += 1
-        exit()
+                total_count += 1
+            exit()
