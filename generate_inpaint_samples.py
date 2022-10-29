@@ -132,7 +132,7 @@ def create_data_loaders():
 
   test_loader = DataLoader(
     dataset=test_data,
-    batch_size=1,
+    batch_size=20,
     num_workers=16,
     pin_memory=True,
   )
@@ -190,7 +190,7 @@ def sample(config):
 
     total_count = 0
 
-    num_samps = 4
+    num_samps = 32
     with torch.no_grad():
         for i, data in enumerate(test_ds):
             print(f"BATCH: {i+1}/{len(test_ds)}")
@@ -220,4 +220,3 @@ def sample(config):
                     torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}_sample_{k}.pt'))
 
                 total_count += 1
-            exit()
