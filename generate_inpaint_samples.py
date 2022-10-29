@@ -25,6 +25,7 @@ import controllable_generation
 import numpy as np
 import tensorflow as tf
 import tensorflow_gan as tfgan
+import matplotlib.pyplot as plt
 import logging
 # Keep the import below for registering all model definitions
 from models import ddpm, ncsnv2, ncsnpp
@@ -130,7 +131,7 @@ def create_data_loaders():
 
   test_loader = DataLoader(
     dataset=test_data,
-    batch_size=40,
+    batch_size=1,
     num_workers=16,
     pin_memory=True,
   )
@@ -189,15 +190,16 @@ def sample(config):
 
     total_count = 0
 
+    num_samps = 4
     for i, data in enumerate(test_ds):
         batch, y, mask = data[0]
         batch = batch.cuda()
-        mask = mask.cuda().repeat(b_size*32, 1, 1, 1)
+        mask = mask.cuda().repeat(b_size*num_samps, 1, 1, 1)
 
-        super_batch = torch.zeros(b_size*32, 3, 256, 256).cuda()
+        super_batch = torch.zeros(b_size*num_samps, 3, 256, 256).cuda()
 
         for j in range(batch.size(0)):
-            super_batch[j*32:(j+1)*32] = batch[j].unsqueeze(0).repeat(32, 1, 1, 1)
+            super_batch[j*num_samps:(j+1)*num_samps] = batch[j].unsqueeze(0).repeat(num_samps, 1, 1, 1)
 
         batch = next(eval_iter)
         img = batch['image']._numpy()
@@ -206,9 +208,9 @@ def sample(config):
         x = pc_inpainter(score_model, scaler(img), mask)
 
         for j in range(batch.size(0)):
-            samps = x[j*32:(j+1)*32, :, :, :]
+            samps = x[j*num_samps:(j+1)*num_samps, :, :, :]
             show_samples(samps, total_count)
-            for k in range(32):
+            for k in range(num_samps):
                 save_dict = {
                     'gt': batch[j].cpu(),
                     'masked': y[j],
