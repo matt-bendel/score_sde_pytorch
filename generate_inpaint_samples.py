@@ -203,11 +203,7 @@ def sample(config):
         for j in range(batch.size(0)):
             super_batch[j*num_samps:(j+1)*num_samps] = batch[j].unsqueeze(0).repeat(num_samps, 1, 1, 1)
 
-        batch = next(eval_iter)
-        img = batch['image']._numpy()
-        img = torch.from_numpy(img).permute(0, 3, 1, 2).to(config.device)
-
-        x = pc_inpainter(score_model, scaler(img), mask)
+        x = pc_inpainter(score_model, scaler(super_batch), mask)
 
         print("SAVING SAMPLES...")
         for j in range(batch.size(0)):
