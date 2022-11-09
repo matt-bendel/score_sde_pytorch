@@ -190,7 +190,6 @@ def sample(config):
 
     total_count = 0
 
-    num_samps = 1
     with torch.no_grad():
         for i, data in enumerate(test_ds):
             print(f"BATCH: {i+1}/{len(test_ds)}")
