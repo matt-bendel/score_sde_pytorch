@@ -208,7 +208,7 @@ def sample(config):
                     'masked': y[j].cpu(),
                     'x_hat': x[j].cpu()
                 }
-                torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}.pt'))
+                torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256_2', f'image_{total_count}.pt'))
 
                 total_count += 1
 
@@ -230,7 +230,7 @@ def sample(config):
                     'x_hat': x[j].cpu()
                 }
                 torch.save(save_dict,
-                           os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}.pt'))
+                           os.path.join('/storage/celebA-HQ/langevin_recons_256_2', f'image_{total_count}.pt'))
 
                 total_count += 1
 
@@ -252,6 +252,6 @@ def sample(config):
                     'x_hat': x[j].cpu()
                 }
                 torch.save(save_dict,
-                           os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}.pt'))
+                           os.path.join('/storage/celebA-HQ/langevin_recons_256_2', f'image_{total_count}.pt'))
 
                 total_count += 1
