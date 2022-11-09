@@ -115,7 +115,7 @@ def create_data_loaders():
 
   train_loader = DataLoader(
     dataset=train_data,
-    batch_size=128,
+    batch_size=500,
     shuffle=True,
     num_workers=16,
     pin_memory=True,
@@ -124,7 +124,7 @@ def create_data_loaders():
 
   dev_loader = DataLoader(
     dataset=dev_data,
-    batch_size=128,
+    batch_size=500,
     num_workers=16,
     pin_memory=True,
     drop_last=True,
@@ -132,7 +132,7 @@ def create_data_loaders():
 
   test_loader = DataLoader(
     dataset=test_data,
-    batch_size=20,
+    batch_size=500,
     num_workers=16,
     pin_memory=True,
   )
@@ -157,7 +157,7 @@ def show_samples(x, tc, config):
   plt.close()
 
 def sample(config):
-    _, _, test_ds = create_data_loaders()
+    train_ds, val_ds, test_ds = create_data_loaders()
 
     score_model = mutils.create_model(config)
     optimizer = get_optimizer(config, score_model.parameters())
@@ -190,47 +190,69 @@ def sample(config):
 
     total_count = 0
 
-    num_samps = 32
+    num_samps = 1
     with torch.no_grad():
         for i, data in enumerate(test_ds):
             print(f"BATCH: {i+1}/{len(test_ds)}")
             batch, y, mask = data[0]
             batch = batch.cuda()
-            mask = mask.cuda().repeat(num_samps, 1, 1, 1)
-
-            super_batch = torch.zeros(batch.size(0)*num_samps, 3, 256, 256).cuda()
-
-            for j in range(batch.size(0)):
-                super_batch[j*num_samps:(j+1)*num_samps] = batch[j].unsqueeze(0).repeat(num_samps, 1, 1, 1)
+            mask = mask.cuda()
 
             print(mask.shape)
-            print(super_batch.shape)
-            x = pc_inpainter(score_model, scaler(super_batch), mask)
+            print(batch.shape)
+            x = pc_inpainter(score_model, scaler(batch), mask)
 
             print("SAVING SAMPLES...")
             for j in range(batch.size(0)):
-                samps = x[j*num_samps:(j+1)*num_samps, :, :, :]
-                fig = plt.figure()
-                fig.subplots_adjust(wspace=0, hspace=0.05)
+                save_dict = {
+                    'gt': batch[j].cpu(),
+                    'masked': y[j].cpu(),
+                    'x_hat': x[j].cpu()
+                }
+                torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}.pt'))
 
-                for k in range(num_samps):
-                    if k < 5:
-                        ax = fig.add_subplot(5, 1, k + 1)
-                        ax.set_xticks([])
-                        ax.set_yticks([])
-                        # if r == 2:
-                        #     ax.set_xlabel('CoModGAN',fontweight='bold')
-                        ax.imshow(samps[k].cpu().numpy().transpose(1, 2, 0))
+                total_count += 1
 
-                    save_dict = {
-                        'gt': batch[j].cpu(),
-                        'masked': y[j].cpu(),
-                        'x_hat': samps[k].cpu()
-                    }
-                    torch.save(save_dict, os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}_sample_{k}.pt'))
+        for i, data in enumerate(val_ds):
+            print(f"BATCH: {i + 1}/{len(val_ds)}")
+            batch, y, mask = data[0]
+            batch = batch.cuda()
+            mask = mask.cuda()
 
-                    if k == 5:
-                        plt.savefig(f'/storage/celebA-HQ/langevin_256_plots/samps_{total_count}.png', bbox_inches='tight', dpi=300)
-                        plt.close(fig)
+            print(mask.shape)
+            print(batch.shape)
+            x = pc_inpainter(score_model, scaler(batch), mask)
+
+            print("SAVING SAMPLES...")
+            for j in range(batch.size(0)):
+                save_dict = {
+                    'gt': batch[j].cpu(),
+                    'masked': y[j].cpu(),
+                    'x_hat': x[j].cpu()
+                }
+                torch.save(save_dict,
+                           os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}.pt'))
+
+                total_count += 1
+
+        for i, data in enumerate(train_ds):
+            print(f"BATCH: {i + 1}/{len(train_ds)}")
+            batch, y, mask = data[0]
+            batch = batch.cuda()
+            mask = mask.cuda()
+
+            print(mask.shape)
+            print(batch.shape)
+            x = pc_inpainter(score_model, scaler(batch), mask)
+
+            print("SAVING SAMPLES...")
+            for j in range(batch.size(0)):
+                save_dict = {
+                    'gt': batch[j].cpu(),
+                    'masked': y[j].cpu(),
+                    'x_hat': x[j].cpu()
+                }
+                torch.save(save_dict,
+                           os.path.join('/storage/celebA-HQ/langevin_recons_256', f'image_{total_count}.pt'))
 
                 total_count += 1
